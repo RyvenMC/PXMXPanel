@@ -18,6 +18,9 @@ Server-Agenten und Windows-Installation unter eigenen PXMX-Namen.
 >
 > Nutzung liegt unter unserer Verantwortung, mit Anspruch auf Support.
 
+💬 Der offizielle PXMX Discord-Server für Support und Austausch:
+https://discord.gg/rxXNR9h2dW
+
 Das Projekt ist unabhängig vom ursprünglichen Windows-Installationspfad und Update-Kanal. Automatische App-Updates sind derzeit deaktiviert.
 
 ## Download
