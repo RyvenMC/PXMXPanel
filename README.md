@@ -128,4 +128,4 @@ Ergebnis: `PXMX.exe` und `dist\PXMX-ServerSuite-Setup-<version>.exe`.
 
 ## Lizenz
 
-[MIT](LICENSE) – kostenlos nutzbar, auch für eigene Server. Keine Garantie.
+[MIT](LICENSE) – Die Nutzung der Kern-Software ist unter der MIT-Lizenz frei. Für professionellen Support oder Enterprise-Features kontaktiere uns bitte.
