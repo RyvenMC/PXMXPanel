@@ -15,7 +15,7 @@ Server-Agenten und Windows-Installation unter eigenen PXMX-Namen.
 > - Eine fehlende MariaDB wird intern im Docker-Netz ergänzt; vorhandene MySQL-/MariaDB-Container bleiben unverändert. Dafür kann `crafty_container` ohne Neustart an ein PXMX-Docker-Netz angeschlossen werden.
 > - Minecraft-Server, Plugins, Mail- und Discord-Dienste werden derzeit nicht automatisch installiert.
 >
-> Nutzung auf eigene Verantwortung, ohne Anspruch auf Support.
+> Nutzung liegt unter unserer Verantwortung, mit Anspruch auf Support.
 
 Das Projekt ist unabhängig vom ursprünglichen Windows-Installationspfad und Update-Kanal. Automatische App-Updates sind derzeit deaktiviert.
 
