@@ -16,7 +16,7 @@ Server-Agenten und Windows-Installation unter eigenen PXMX-Namen.
 > - Minecraft-Server werden nicht automatisch angelegt. Plugins können im Datei-Bereich über die Spigot-Suche ausgewählt und als JAR hochgeladen werden; der Server wird nicht automatisch neu gestartet.
 > - Mail- und Discord-Dienste werden nicht automatisch installiert. Der KI-Key kann im Panel eingerichtet werden, sobald ein KI-Bot als Docker-Compose-Service läuft; der API-Key muss vorher beim Anbieter erstellt werden.
 >
-> Nutzung auf eigene Verantwortung, ohne Anspruch auf Support.
+> Nutzung liegt unter unserer Verantwortung, mit Anspruch auf Support.
 
 Das Projekt ist unabhängig vom ursprünglichen Windows-Installationspfad und Update-Kanal. Automatische App-Updates sind derzeit deaktiviert.
 
