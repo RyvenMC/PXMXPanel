@@ -1,0 +1,37 @@
+# RyvenPanel Web (secure.ryvenmc.de) – eigener Container, erreichbar nur über den Haupt-Webserver (ryvenmc-web).
+# Liefert die Web-App aus und reicht /panel/* und /api/v2/* an das RyvenPanel-Gateway auf dem Host weiter.
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	encode gzip
+	header {
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		Cache-Control no-store
+		-Server
+	}
+
+	# Update-Downloads der Desktop-App gibt es hier nicht
+	@update path /panel/update*
+	respond @update 404
+
+	@api path /panel/* /api/v2/*
+	handle @api {
+		reverse_proxy https://host.docker.internal:8444 {
+			transport http {
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	handle {
+		root * /srv
+		file_server
+	}
+}

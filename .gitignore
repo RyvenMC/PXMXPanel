@@ -1,0 +1,11 @@
+*.exe
+*.old
+*.new
+src/app.ico
+dist/
+docs/screenshots/
+obj/
+bin/
+__pycache__/
+*.py[cod]
+.venv/

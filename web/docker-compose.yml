@@ -1,0 +1,21 @@
+# RyvenPanel Web: /opt/ryvenpanel-web  ·  docker compose up -d   (zuerst starten – legt das Netz ryvenpanel-net an)
+# Kein Port nach außen: erreichbar nur über den Haupt-Webserver (ryvenmc-web) unter secure.ryvenmc.de.
+services:
+  panel:
+    image: caddy:2.10-alpine
+    container_name: ryvenpanel-web
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site:/srv:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ryvenpanel-net
+
+networks:
+  ryvenpanel-net:
+    name: ryvenpanel-net
+    ipam:
+      config:
+        - subnet: 172.30.42.0/24   # nur aus diesem Netz glaubt das Gateway der weitergereichten Client-IP
