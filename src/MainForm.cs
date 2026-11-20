@@ -924,7 +924,7 @@ namespace RyvenPanel
             UiX.Ratio(split, 0.34, 300, 360);
 
             // left: browser
-            var left = new RoundPanel { Dock = DockStyle.Fill, Padding = new Padding(10, 98, 10, 12) };
+            var left = new RoundPanel { Dock = DockStyle.Fill, Padding = new Padding(10, 138, 10, 12) };
             var tools = new FlowLayoutPanel { Location = new Point(10, 52), Size = new Size(340, 40), BackColor = Theme.Card, WrapContents = false };
             var bUpFiles = new FlatBtn("⇪ Dateien", Theme.Accent) { Height = 34, Width = 84 };
             var bUpDir = new FlatBtn("⇪ Ordner", Theme.Accent) { Height = 34, Width = 80 };
@@ -942,6 +942,14 @@ namespace RyvenPanel
             };
             left.Controls.Add(tools);
             left.Resize += (s, e) => tools.Width = left.Width - 20;
+            var bSpigot = new FlatBtn("Plugins aus Spigot …", Theme.CardHi) { Location = new Point(10, 94), Size = new Size(190, 34) };
+            Need(bSpigot, "files.edit");
+            bSpigot.Click += (s, e) =>
+            {
+                if (cur == null) return;
+                using (var dialog = new SpigotPluginDialog(api, cur)) dialog.ShowDialog(this);
+            };
+            left.Controls.Add(bSpigot);
             bUpFiles.Click += async (s, e) =>
             {
                 using (var d = new OpenFileDialog { Multiselect = true, Title = "Dateien hochladen (z. B. Plugins)", Filter = "Alle Dateien|*.*|Plugins (*.jar)|*.jar" })

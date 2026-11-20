@@ -53,8 +53,9 @@ namespace RyvenPanel
             var sb = new StringBuilder();
             if (!installed)
                 sb.Append(Ssh.InstallIfNewer("/opt/pxmx/mod.py", TeamView.ModSource()));
-            sb.Append("python3 /opt/pxmx/mod.py ").Append(cmd).Append(' ')
-              .Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(J.ToJson(args))));
+            sb.Append("printf '%s' '")
+              .Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(J.ToJson(args))))
+              .Append("' | base64 -d | python3 /opt/pxmx/mod.py ").Append(cmd).Append(" -");
             var res = await getSsh().Run(sb.ToString(), 60000);
             if (!res.Ok) return new KeyValuePair<object, string>(null, res.Message);
             installed = true;

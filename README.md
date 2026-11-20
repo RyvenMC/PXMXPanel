@@ -13,7 +13,8 @@ Server-Agenten und Windows-Installation unter eigenen PXMX-Namen.
 > - Bestehende Docker-Container und erkannte Crafty-Daten werden nicht überschrieben; Firewall-Regeln werden nicht geändert.
 > - Craftys Weboberfläche wird bei einer Neuinstallation nur an `127.0.0.1:8443` gebunden. Die App verbindet sich per SSH-Portweiterleitung.
 > - Eine fehlende MariaDB wird intern im Docker-Netz ergänzt; vorhandene MySQL-/MariaDB-Container bleiben unverändert. Dafür kann `crafty_container` ohne Neustart an ein PXMX-Docker-Netz angeschlossen werden.
-> - Minecraft-Server, Plugins, Mail- und Discord-Dienste werden derzeit nicht automatisch installiert.
+> - Minecraft-Server werden nicht automatisch angelegt. Plugins können im Datei-Bereich über die Spigot-Suche ausgewählt und als JAR hochgeladen werden; der Server wird nicht automatisch neu gestartet.
+> - Mail- und Discord-Dienste werden nicht automatisch installiert. Der KI-Key kann im Panel eingerichtet werden, sobald ein KI-Bot als Docker-Compose-Service läuft; der API-Key muss vorher beim Anbieter erstellt werden.
 >
 > Nutzung auf eigene Verantwortung, ohne Anspruch auf Support.
 
@@ -32,10 +33,12 @@ Nach dem lokalen Build liegt der Installer unter `dist\PXMX-ServerSuite-Setup-x.
 | Bereich | Was es kann |
 |---|---|
 | **Server-Steuerung** | Alle Crafty-Server mit Live-Status, Start/Stopp/Neustart, Backups, Konsole, Dateien, Metriken |
+| **Spigot-Plugins** | Kostenlose Spigot-Ressourcen suchen, Version und getestete Minecraft-Versionen prüfen und JARs in den ausgewählten Server hochladen |
 | **Spieler & VPN** | Wer ist online, Login-Verlauf, VPN/Proxy-Erkennung |
 | **Nutzer & Ränge** | Money, Coins, LuckPerms-Ränge und Permissions, Bans |
 | **Wirtschaft** | Geldmenge (Inflation), woher das Geld kommt, Top-Verdiener, Shop-Statistik, Preise ändern (EconomyShopGUI), Crate-Auswertung, Verkaufssteuer |
 | **Moderation** | Reports mit Chatverlauf bearbeiten, alle Strafen (Bann, Mute, Kick, Verwarnung) mit Filter und Aufheben, Discord-Verknüpfungen, Spieler-Akte – Strafen netzwerkweit mit Vorlagen und Eskalation (RyvenBans) |
+| **KI-Key** | Anthropic-Key im Panel eingeben; serverseitig in einer geschützten Docker-Compose-Override-Datei speichern und den KI-Container neu starten |
 | **Terminal** | SSH-Konsole mit mehreren Tabs |
 | **Dateien** | Datei-Manager für den ganzen Server (Upload/Download, Editor) |
 | **Docker** | Container, Stacks, Images, Netzwerke |
@@ -107,6 +110,8 @@ Wirtschaft den Windows-Client „OpenSSH“ (*Einstellungen → Optionale Featur
 3. Server prüfen. Die App zeigt erkannte Docker-, Compose-, Crafty- und Datenbank-Komponenten an.
 4. Nach ausdrücklicher Bestätigung werden fehlende Docker-/Compose-Pakete, Crafty und MariaDB ergänzt; Zugangsdaten einer neuen MariaDB speichert die App DPAPI-verschlüsselt und zeigt sie auf Wunsch an.
 5. „Weiter zur Anmeldung“ öffnet den Crafty-Login über die SSH-Portweiterleitung.
+6. Im Datei-Bereich eines Servers „Plugins aus Spigot …“ öffnen, Plugin suchen und vor dem Upload Quelle und Kompatibilität prüfen. Ein Neustart erfolgt manuell.
+7. Für den KI-Support einen API-Key im [Anthropic Console](https://console.anthropic.com/settings/keys) erstellen und im Tab „KI-Support → Einstellungen“ hinterlegen. Der Key wird nicht zurückgelesen; der Bot-Container muss Compose-verwaltet sein.
 
 ## Selbst bauen
 

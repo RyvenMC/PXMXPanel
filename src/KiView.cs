@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -19,10 +20,11 @@ namespace RyvenPanel
         KpiCard kState, kAsked, kRate, kOpen;
         Label ovInfo;
         Segmented vFilter, vSource;
-        Field vSearch, fCooldown, fDaily;
+        Field vSearch, fCooldown, fDaily, fApiKey;
         ListView vList, wList;
         TextBox vQuestion, vAnswer, wText;
-        FlatBtn bDone, bReopen, bPrev, bNext, bSave, bCfgSave;
+        FlatBtn bDone, bReopen, bPrev, bNext, bSave, bCfgSave, bApiKeySave, bApiKeyClear;
+        Label apiKeyInfo;
         readonly Timer poll = new Timer { Interval = 60000 };
         bool busy, loaded, more;
         int offset;
@@ -55,8 +57,10 @@ namespace RyvenPanel
         public void ApplyPerms()
         {
             bDone.Visible = bReopen.Visible = bSave.Visible = bCfgSave.Visible = CanEdit;
+            bApiKeySave.Visible = bApiKeyClear.Visible = CanEdit;
             wText.ReadOnly = !CanEdit || curFile == "auto.md";
             fCooldown.Box.ReadOnly = fDaily.Box.ReadOnly = !CanEdit;
+            fApiKey.Box.ReadOnly = !CanEdit;
         }
 
         void SetTab(int i)
@@ -213,25 +217,56 @@ namespace RyvenPanel
         Panel BuildConfig()
         {
             var page = Page();
-            var card = new RoundPanel { Dock = DockStyle.Top, Height = 270, Padding = new Padding(20, 16, 20, 14) };
+            var card = new RoundPanel { Dock = DockStyle.Top, Height = 376, Padding = new Padding(20, 16, 20, 14) };
+            var keyTitle = Theme.Lbl("ANTHROPIC API-KEY", Theme.F(8f, FontStyle.Bold), Theme.Muted, Color.Transparent);
+            keyTitle.Location = new Point(0, 0);
+            fApiKey = new Field(true) { Location = new Point(0, 25), Size = new Size(330, 36) };
+            fApiKey.Placeholder = "API-Key hier einfügen";
+            bApiKeySave = Ui.Btn("Key speichern", Theme.Accent, 34);
+            bApiKeySave.Location = new Point(342, 25);
+            bApiKeySave.Width = 132;
+            bApiKeyClear = Ui.Btn("Key entfernen", Theme.CardHi, 34);
+            bApiKeyClear.Location = new Point(482, 25);
+            bApiKeyClear.Width = 132;
+            var keyLink = new LinkLabel
+            {
+                Text = "API-Key bei Anthropic erstellen",
+                Location = new Point(0, 68),
+                AutoSize = true,
+                LinkColor = Theme.Accent,
+                ActiveLinkColor = Theme.Accent,
+                VisitedLinkColor = Theme.Accent,
+                BackColor = Color.Transparent,
+                Font = Theme.F(8.75f)
+            };
+            keyLink.LinkClicked += (s, e) =>
+            {
+                try { Process.Start("https://console.anthropic.com/settings/keys"); }
+                catch (System.ComponentModel.Win32Exception ex) { setStatus("Anthropic-Konsole konnte nicht geöffnet werden: " + ex.Message, Theme.Red); }
+                catch (InvalidOperationException ex) { setStatus("Anthropic-Konsole konnte nicht geöffnet werden: " + ex.Message, Theme.Red); }
+            };
+            apiKeyInfo = Theme.Lbl("Der Schlüssel wird nur auf dem Server gespeichert und nie angezeigt. Der Bot wird beim Speichern neu gestartet.", Theme.F(8.75f), Theme.Muted, Color.Transparent);
+            apiKeyInfo.Location = new Point(0, 92);
+            apiKeyInfo.AutoSize = false;
+            apiKeyInfo.Size = new Size(760, 24);
             fCooldown = new Field(false) { Width = 140, Height = 36 };
             fDaily = new Field(false) { Width = 140, Height = 36 };
             bCfgSave = Ui.Btn("Speichern", Theme.Accent, 34);
-            cfgInfo = Theme.Lbl("Der Bot liest diese Werte nur beim Start – sie gelten erst nach einem Neustart des Containers „ryvenlink-bot“.", Theme.F(8.75f), Theme.Muted, Color.Transparent);
+            cfgInfo = Theme.Lbl("Der Bot liest diese Werte nur beim Start – das Speichern startet den Bot-Container neu.", Theme.F(8.75f), Theme.Muted, Color.Transparent);
             var l1 = Theme.Lbl("Wartezeit zwischen zwei Fragen (Sekunden)", Theme.F(9.25f), Theme.Text2, Color.Transparent);
             var l2 = Theme.Lbl("Fragen pro Spieler und Tag", Theme.F(9.25f), Theme.Text2, Color.Transparent);
-            int y = 0;
-            foreach (var c in new Control[] { l1, fCooldown, l2, fDaily, cfgInfo, bCfgSave })
-            {
-                c.Location = new Point(0, y);
-                c.AutoSize = c is Label ? true : false;
-                y += c is Label ? 28 : 46;
-                card.Controls.Add(c);
-            }
-            cfgInfo.AutoSize = false; cfgInfo.Size = new Size(760, 22);
+            l1.Location = new Point(0, 128); l1.AutoSize = true;
+            fCooldown.Location = new Point(0, 150);
+            l2.Location = new Point(0, 194); l2.AutoSize = true;
+            fDaily.Location = new Point(0, 216);
+            cfgInfo.Location = new Point(0, 260); cfgInfo.AutoSize = false; cfgInfo.Size = new Size(760, 22);
+            bCfgSave.Location = new Point(0, 294);
             bCfgSave.Width = 140;
+            card.Controls.AddRange(new Control[] { keyTitle, fApiKey, bApiKeySave, bApiKeyClear, keyLink, apiKeyInfo, l1, fCooldown, l2, fDaily, cfgInfo, bCfgSave });
             page.Controls.Add(card);
             bCfgSave.Click += async (s, e) => await SaveConfig();
+            bApiKeySave.Click += async (s, e) => await SaveApiKey();
+            bApiKeyClear.Click += async (s, e) => await ClearApiKey();
             return page;
         }
 
@@ -363,6 +398,10 @@ namespace RyvenPanel
             if (r.Value != null) { setStatus("KI-Einstellungen: " + r.Value, Theme.Red); return; }
             fCooldown.Box.Text = ((int)J.N(r.Key, "cooldown_seconds")).ToString();
             fDaily.Box.Text = ((int)J.N(r.Key, "daily_limit")).ToString();
+            apiKeyInfo.Text = J.B(r.Key, "api_key_set")
+                ? "API-Key ist auf dem Server gesetzt. Der geheime Wert wird nicht an das Panel zurückgesendet."
+                : "Noch kein API-Key gesetzt. Einen Key im Anthropic-Portal erzeugen und hier einfügen.";
+            apiKeyInfo.ForeColor = J.B(r.Key, "api_key_set") ? Theme.Green : Theme.Yellow;
         }
 
         async Task SaveConfig()
@@ -371,7 +410,51 @@ namespace RyvenPanel
             if (!int.TryParse(fCooldown.Box.Text.Trim(), out cd) || !int.TryParse(fDaily.Box.Text.Trim(), out dl)) { setStatus("Bitte ganze Zahlen eingeben.", Theme.Yellow); return; }
             var r = await mc.Call("ki_config_set", new Dictionary<string, object> { { "cooldown_seconds", cd }, { "daily_limit", dl } });
             if (r.Value != null) { setStatus("Nicht gespeichert: " + r.Value, Theme.Red); return; }
-            setStatus("Gespeichert – gilt nach dem nächsten Neustart des Containers ryvenlink-bot.", Theme.Green);
+            setStatus("Gespeichert – der Bot-Container wurde neu gestartet.", Theme.Green);
+        }
+
+        async Task SaveApiKey()
+        {
+            if (!CanEdit) return;
+            var key = fApiKey.Box.Text.Trim();
+            if (key.Length < 20 || key.Length > 4096 || key.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
+            {
+                setStatus("Bitte einen gültigen Anthropic-API-Key einfügen.", Theme.Yellow);
+                return;
+            }
+            if (!Dialogs.Confirm(FindForm(), "KI-API-Key speichern",
+                "Der Key wird in der Compose-Konfiguration des KI-Containers auf dem Server gespeichert. Der Container wird neu erstellt und gestartet. Fortfahren?"))
+                return;
+            bApiKeySave.Enabled = bApiKeyClear.Enabled = false;
+            try
+            {
+                var r = await mc.Call("ki_api_key_set", new Dictionary<string, object> { { "api_key", key } });
+                if (r.Value != null) { setStatus("KI-Key nicht gespeichert: " + r.Value, Theme.Red); return; }
+                fApiKey.Box.Clear();
+                apiKeyInfo.Text = "API-Key ist auf dem Server gesetzt. Der geheime Wert wird nicht an das Panel zurückgesendet.";
+                apiKeyInfo.ForeColor = Theme.Green;
+                setStatus("Anthropic-API-Key gespeichert; der Bot-Container wurde neu gestartet.", Theme.Green);
+            }
+            finally { bApiKeySave.Enabled = bApiKeyClear.Enabled = CanEdit; }
+        }
+
+        async Task ClearApiKey()
+        {
+            if (!CanEdit) return;
+            if (!Dialogs.Confirm(FindForm(), "KI-API-Key entfernen",
+                "Der API-Key wird aus der Compose-Konfiguration entfernt und der Bot-Container neu gestartet. Fortfahren?"))
+                return;
+            bApiKeySave.Enabled = bApiKeyClear.Enabled = false;
+            try
+            {
+                var r = await mc.Call("ki_api_key_set", new Dictionary<string, object> { { "api_key", "" } });
+                if (r.Value != null) { setStatus("KI-Key nicht entfernt: " + r.Value, Theme.Red); return; }
+                fApiKey.Box.Clear();
+                apiKeyInfo.Text = "API-Key wurde entfernt. Der KI-Support kann ohne Key nicht antworten.";
+                apiKeyInfo.ForeColor = Theme.Yellow;
+                setStatus("Anthropic-API-Key entfernt; der Bot-Container wurde neu gestartet.", Theme.Green);
+            }
+            finally { bApiKeySave.Enabled = bApiKeyClear.Enabled = CanEdit; }
         }
     }
 }

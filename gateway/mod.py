@@ -1931,7 +1931,7 @@ def ds_auskunft(a):
 
 # ───────────────────────────── KI-Support ─────────────────────────────
 KI_DIR = os.environ.get("RP_KI_DIR", "/opt/ryvenlink-bot")
-KI_CONTAINER = "ryvenlink-bot"
+KI_CONTAINER = os.environ.get("RP_KI_CONTAINER", "ryvenlink-bot")
 KI_NAME_RX = re.compile(r"[A-Za-z0-9_-]{1,60}\.md")
 KI_MAX = 100 * 1024
 KI_LIMITS = {"cooldown_seconds": (0, 3600), "daily_limit": (1, 1000)}
@@ -2070,8 +2070,9 @@ def ki_cfg_path():
 
 def ki_config(a):
     c = json.load(open(ki_cfg_path(), encoding="utf-8")).get("ai") or {}
+    _, api_key_set = ki_status()
     return {"cooldown_seconds": int(c.get("cooldown_seconds", 15)), "daily_limit": int(c.get("daily_limit", 40)),
-            "grenzen": {k: list(v) for k, v in KI_LIMITS.items()}}
+            "api_key_set": api_key_set, "grenzen": {k: list(v) for k, v in KI_LIMITS.items()}}
 
 
 def ki_config_set(a):
@@ -2099,7 +2100,110 @@ def ki_config_set(a):
     with open(p, "w", encoding="utf-8") as f:   # an Ort und Stelle schreiben: Besitzer/Rechte (Bot-Benutzer, 0400) bleiben erhalten
         f.write(out)
     return dict(ki_config({}), neustart_noetig=True,
-                hinweis="Der Bot liest die Einstellungen nur beim Start – sie gelten nach dem nächsten Neustart des Containers ryvenlink-bot.")
+                hinweis="Der Bot liest die Einstellungen nur beim Start – der Container %s muss neu gestartet werden." % KI_CONTAINER)
+
+
+def ki_api_key_set(a):
+    api_key = a.get("api_key")
+    if not isinstance(api_key, str):
+        raise Fail("API-Key muss als Text übergeben werden.")
+    if len(api_key) > 4096 or any(c in api_key for c in ("\0", "\r", "\n")):
+        raise Fail("API-Key ist ungültig oder zu lang.")
+    if api_key and len(api_key) < 20:
+        raise Fail("API-Key ist zu kurz.")
+
+    r = subprocess.run(["docker", "inspect", "--format", "{{json .Config.Labels}}", KI_CONTAINER],
+                       capture_output=True, timeout=15)
+    if r.returncode != 0:
+        err = r.stderr.decode(errors="replace").strip()
+        raise Fail("Docker-Inspect für den KI-Container '%s' fehlgeschlagen: %s" %
+                   (KI_CONTAINER, err[:160] if err else "Container nicht gefunden oder keine Docker-Berechtigung."))
+    try:
+        labels = json.loads(r.stdout.decode(errors="replace") or "{}") or {}
+    except ValueError:
+        raise Fail("Docker lieferte ungültige Container-Metadaten.")
+    workdir = labels.get("com.docker.compose.project.working_dir")
+    config_files = labels.get("com.docker.compose.project.config_files")
+    project = labels.get("com.docker.compose.project")
+    service = labels.get("com.docker.compose.service")
+    if not workdir or not config_files or not project or not service:
+        raise Fail("Der KI-Container muss über Docker Compose verwaltet werden; es wurde nichts geändert.")
+    if not os.path.isdir(workdir) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", project) or \
+       not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", service):
+        raise Fail("Docker-Compose-Projekt oder Service-Name ist ungültig.")
+
+    compose_files = []
+    for path in config_files.split(","):
+        path = path.strip()
+        if not path:
+            continue
+        if not os.path.isabs(path):
+            path = os.path.join(workdir, path)
+        if not os.path.isfile(path):
+            raise Fail("Docker-Compose-Datei nicht gefunden: %s" % path)
+        compose_files.append(os.path.abspath(path))
+    if not compose_files:
+        raise Fail("Docker meldet keine Docker-Compose-Datei für den KI-Container.")
+
+    override = os.path.join(workdir, "docker-compose.pxmx-ai.override.yml")
+    marker = "# PXMX-managed AI key"
+    old = None
+    if os.path.exists(override):
+        with open(override, "r", encoding="utf-8") as f:
+            old = f.read()
+        if not old.startswith(marker):
+            raise Fail("Die Datei docker-compose.pxmx-ai.override.yml existiert bereits und wird nicht überschrieben.")
+
+    yaml_key = json.dumps(api_key, ensure_ascii=True).replace("$", "$$")
+    content = "%s\nservices:\n  %s:\n    environment:\n      ANTHROPIC_API_KEY: %s\n" % (
+        marker, service, yaml_key)
+    if old == content:
+        return {"api_key_set": bool(api_key), "geaendert": False, "neustart_noetig": False}
+
+    fd, tmp = tempfile.mkstemp(prefix=".pxmx-ai-", dir=workdir)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, override)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+    compose = shutil.which("docker-compose")
+    command = [compose] if compose else ["docker", "compose"]
+    command.extend(["-p", project])
+    for path in compose_files:
+        command.extend(["-f", path])
+    command.extend(["-f", override, "up", "-d", "--no-deps", service])
+    try:
+        result = subprocess.run(command, cwd=workdir, capture_output=True, timeout=180)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        if old is None:
+            os.remove(override)
+        else:
+            fd, restore = tempfile.mkstemp(prefix=".pxmx-ai-restore-", dir=workdir)
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(old)
+            os.chmod(restore, 0o600)
+            os.replace(restore, override)
+        raise Fail("Docker Compose konnte nicht ausgeführt werden: %s" % str(e)[:180])
+    if result.returncode != 0:
+        if old is None:
+            os.remove(override)
+        else:
+            fd, restore = tempfile.mkstemp(prefix=".pxmx-ai-restore-", dir=workdir)
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(old)
+            os.chmod(restore, 0o600)
+            os.replace(restore, override)
+        err = (result.stderr or result.stdout).decode(errors="replace").strip()
+        if api_key:
+            err = err.replace(api_key, "[redacted]")
+            err = err.replace(api_key.replace("$", "$$"), "[redacted]")
+        raise Fail("KI-Container konnte nicht mit der neuen Einstellung gestartet werden: %s" % err[:180])
+    return {"api_key_set": bool(api_key), "geaendert": True, "neustart_noetig": False}
 
 
 CMDS = {"overview": overview, "reports": reports, "report": report, "report_set": report_set, "punishments": punishments,
@@ -2110,7 +2214,8 @@ CMDS = {"overview": overview, "reports": reports, "report": report, "report_set"
         "waechter_bericht": waechter_bericht, "ds_antraege": ds_antraege, "ds_vorschau": ds_vorschau, "ds_loeschen": ds_loeschen, "ds_ablehnen": ds_ablehnen,
         "ds_auskunft_status": ds_auskunft_status, "ds_auskunft": ds_auskunft, "ds_auskunft_kategorien": ds_auskunft_kategorien,
         "ki_overview": ki_overview, "ki_verlauf": ki_verlauf, "ki_set_status": ki_set_status, "ki_wissen": ki_wissen, "ki_wissen_lesen": ki_wissen_lesen,
-        "ki_wissen_speichern": ki_wissen_speichern, "ki_config": ki_config, "ki_config_set": ki_config_set}
+        "ki_wissen_speichern": ki_wissen_speichern, "ki_config": ki_config, "ki_config_set": ki_config_set,
+        "ki_api_key_set": ki_api_key_set}
 
 
 def main():

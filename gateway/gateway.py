@@ -1010,7 +1010,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             need = "datenschutz.auskunft"
         elif cmd in ("ki_overview", "ki_verlauf", "ki_wissen", "ki_wissen_lesen", "ki_config"):
             need = "ki.view"
-        elif cmd in ("ki_set_status", "ki_wissen_speichern", "ki_config_set"):
+        elif cmd in ("ki_set_status", "ki_wissen_speichern", "ki_config_set", "ki_api_key_set"):
             need = "ki.edit"
         elif cmd in MOD_VIEW:
             need = "moderation.view"
@@ -1046,8 +1046,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             audit(s["username"], self.ip, "Datenschutz", "Auskunft-Kategorien abgefragt: %s" % str(args.get("spieler", ""))[:40], "ok" if res.get("status") == "ok" else "Fehler: " + str(res.get("error", ""))[:120])
         if cmd == "ds_ablehnen":
             audit(s["username"], self.ip, "Datenschutz", "Löschantrag #%s abgelehnt: %s" % (args.get("id"), str(args.get("grund", ""))[:150]), "ok" if res.get("status") == "ok" else "Fehler")
-        if cmd in ("ki_set_status", "ki_wissen_speichern", "ki_config_set"):
-            audit(s["username"], self.ip, "KI-Support", cmd[3:] + " " + ((str(args.get("id")) + " -> " + str(args.get("status") or "done")) if cmd == "ki_set_status" else str(args.get("name") or json.dumps({k: args.get(k) for k in ("cooldown_seconds", "daily_limit")})))[:100], "ok" if res.get("status") == "ok" else "Fehler")
+        if cmd in ("ki_set_status", "ki_wissen_speichern", "ki_config_set", "ki_api_key_set"):
+            detail = "API-Key geändert" if cmd == "ki_api_key_set" else \
+                     (str(args.get("id")) + " -> " + str(args.get("status") or "done")) if cmd == "ki_set_status" else \
+                     str(args.get("name") or json.dumps({k: args.get(k) for k in ("cooldown_seconds", "daily_limit")}))
+            audit(s["username"], self.ip, "KI-Support", cmd[3:] + " " + detail[:100], "ok" if res.get("status") == "ok" else "Fehler")
         if cmd == "ki_verlauf":
             audit(s["username"], self.ip, "KI-Support", "Verlauf gelesen (Filter %s, ab %s)" % (str(args.get("filter") or "alle")[:20], str(args.get("offset") or 0)[:8]), "ok" if res.get("status") == "ok" else "Fehler")
         if cmd == "nutzer_act":
